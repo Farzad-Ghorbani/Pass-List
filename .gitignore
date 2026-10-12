@@ -1,0 +1,10 @@
+.env
+*.key
+*.pfx
+*.p12
+*.sql
+*.dump
+*.bak
+backups/
+certs/
+postgres-data/
