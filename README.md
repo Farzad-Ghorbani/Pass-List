@@ -77,6 +77,6 @@ The running application itself does not require Internet access. For a fully iso
 
 ## Build source
 
-`source/pass-list-v1.13.1-final-source.zip` is the exact build source used by the GitHub Actions workflow. The accompanying SHA-256 file is verified before images are built.
+The exact build source is stored under `source/parts/` as Base64 archive parts. GitHub Actions reconstructs `pass-list-v1.13.1-final-source.zip`, verifies it against `source/BUILD-SHA256.txt`, and only then builds the images.
 
 The application code includes the production-tested Controller Value search filtering, Controller-scoped result columns, sticky/search-result table improvements, UI refinements, hostname management, blocked-access landing page, TLS management, and migrations through `core.0008`.
