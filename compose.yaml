@@ -1,0 +1,153 @@
+name: pass-list
+
+services:
+  init:
+    image: ghcr.io/farzad-ghorbani/pass-list-init:v1.13.1-final
+    container_name: passlist-init
+    restart: "no"
+    environment:
+      PASSLIST_INITIAL_HOSTNAME: ${PASSLIST_INITIAL_HOSTNAME:-pass-list.local}
+    volumes:
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}:/data
+
+  db:
+    image: ghcr.io/farzad-ghorbani/pass-list-postgres:16-alpine
+    container_name: passlist-db
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-passlist_db}
+      POSTGRES_USER: ${POSTGRES_USER:-passlist_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      TZ: ${TZ:-Asia/Tehran}
+    volumes:
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - passlist-net
+
+  web:
+    image: ghcr.io/farzad-ghorbani/pass-list-web:v1.13.1-final
+    container_name: passlist-web
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Asia/Tehran}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?DJANGO_ALLOWED_HOSTS is required}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+      POSTGRES_DB: ${POSTGRES_DB:-passlist_db}
+      POSTGRES_USER: ${POSTGRES_USER:-passlist_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      PASSLIST_ENCRYPTION_KEY: ${PASSLIST_ENCRYPTION_KEY:?PASSLIST_ENCRYPTION_KEY is required}
+      PASSLIST_OPS_TOKEN: ${PASSLIST_OPS_TOKEN:?PASSLIST_OPS_TOKEN is required}
+      PASSLIST_OPS_URL: http://cert-ops:8081
+      PASSLIST_CERT_STAGING_DIR: /opt/pass-list/cert-staging
+      STATIC_ROOT: /vol/static
+      MEDIA_ROOT: /vol/media
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE:-true}
+      SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-false}
+      PASSLIST_IDLE_TIMEOUT_SECONDS: ${PASSLIST_IDLE_TIMEOUT_SECONDS:-900}
+      SESSION_COOKIE_AGE: ${SESSION_COOKIE_AGE:-1800}
+      PASSLIST_SESSION_STORAGE_AGE: ${PASSLIST_SESSION_STORAGE_AGE:-2592000}
+      SESSION_EXPIRE_AT_BROWSER_CLOSE: ${SESSION_EXPIRE_AT_BROWSER_CLOSE:-true}
+      SESSION_SAVE_EVERY_REQUEST: ${SESSION_SAVE_EVERY_REQUEST:-true}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
+      APP_NAME: ${APP_NAME:-Pass-List}
+      APP_COMPANY_NAME: ${APP_COMPANY_NAME:-IT Department}
+      SUPERADMIN_USERNAME: ${SUPERADMIN_USERNAME:-superadmin}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-}
+      SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-}
+    volumes:
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/static:/vol/static
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/media:/vol/media
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/logs/app:/var/log/pass-list
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/secure:/opt/pass-list/secure:ro
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/cert-staging:/opt/pass-list/cert-staging
+    networks:
+      - passlist-net
+
+  nginx:
+    image: ghcr.io/farzad-ghorbani/pass-list-nginx:v1.13.1-final
+    container_name: passlist-nginx
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      web:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/certs:/etc/nginx/certs:ro
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/static:/vol/static:ro
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/media:/vol/media:ro
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/logs/nginx:/var/log/nginx
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/nginx-runtime:/etc/nginx/passlist-runtime:ro
+    networks:
+      - passlist-net
+
+  cert-ops:
+    image: ghcr.io/farzad-ghorbani/pass-list-cert-ops:v1.13.1-final
+    container_name: passlist-cert-ops
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      nginx:
+        condition: service_started
+    pid: "service:nginx"
+    group_add:
+      - "10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+      - /var/cache/nginx
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+    environment:
+      PASSLIST_OPS_TOKEN: ${PASSLIST_OPS_TOKEN:?PASSLIST_OPS_TOKEN is required}
+      PASSLIST_CERT_STAGING_DIR: /staging
+      PASSLIST_CERT_DIR: /etc/nginx/certs
+      PASSLIST_CERT_BACKUP_DIR: /backups
+      PASSLIST_NGINX_RUNTIME_DIR: /etc/nginx/passlist-runtime
+      PASSLIST_HOST_BACKUP_DIR: /host-backups
+    volumes:
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/certs:/etc/nginx/certs
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/cert-staging:/staging
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/backups/certificates:/backups
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/backups/hostnames:/host-backups
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/nginx-runtime:/etc/nginx/passlist-runtime
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/static:/vol/static:ro
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/media:/vol/media:ro
+      - ${PASSLIST_BASE_PATH:-/opt/pass-list}/logs/nginx:/var/log/nginx
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=2)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - passlist-net
+
+networks:
+  passlist-net:
+    driver: bridge
