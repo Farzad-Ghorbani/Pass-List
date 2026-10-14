@@ -1,0 +1,8 @@
+{
+  "graphify_version": "0.9.90",
+  "source_sha256": "ca97b177b456d495bb5958ab49239abc3bf41733c9d92862e8173c29bd119a1e",
+  "source_root": "graphify-source/",
+  "mode": "code-only; local AST; no LLM",
+  "nodes": 633,
+  "edges": 1818
+}

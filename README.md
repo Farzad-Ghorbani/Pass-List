@@ -80,3 +80,12 @@ The running application itself does not require Internet access. For a fully iso
 The exact build source is stored under `source/parts/` as Base64 archive parts. GitHub Actions reconstructs `pass-list-v1.13.1-final-source.zip`, verifies it against `source/BUILD-SHA256.txt`, and only then builds the images.
 
 The application code includes the production-tested Controller Value search filtering, Controller-scoped result columns, sticky/search-result table improvements, UI refinements, hostname management, blocked-access landing page, TLS management, and migrations through `core.0008`.
+
+
+## Code knowledge graph (Graphify)
+
+Graphify **0.9.90** is installed at project scope for Codex. The checked-in
+`graphify-out/` snapshot maps the verified application source and supports code
+queries. See [setup and rebuild instructions](tools/graphify/README.md).
+The **Graphify code graph** GitHub Actions workflow publishes a refreshed HTML,
+JSON and Markdown report artifact after relevant changes.

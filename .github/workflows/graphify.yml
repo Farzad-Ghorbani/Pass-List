@@ -1,0 +1,47 @@
+name: Graphify code graph
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'source/**'
+      - 'tools/graphify/**'
+      - '.github/workflows/graphify.yml'
+  pull_request:
+    paths:
+      - 'source/**'
+      - 'tools/graphify/**'
+      - '.github/workflows/graphify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  graph:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/graphify/requirements.txt
+      - name: Install Graphify
+        run: python -m pip install -r tools/graphify/requirements.txt
+      - name: Build verified source graph without an LLM
+        run: bash tools/graphify/build.sh
+      - name: Verify query
+        run: graphify query 'SecretRecord' --budget 500
+      - name: Upload graph and report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pass-list-graphify-${{ github.sha }}
+          path: |
+            graphify-out/graph.json
+            graphify-out/graph.html
+            graphify-out/GRAPH_REPORT.md
+            graphify-out/SOURCE.json
+          if-no-files-found: error
+          retention-days: 30

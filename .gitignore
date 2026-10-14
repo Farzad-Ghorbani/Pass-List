@@ -8,3 +8,10 @@
 backups/
 certs/
 postgres-data/
+
+.venv-graphify/
+graphify-source/
+graphify-out/cache/
+graphify-out/.*
+__pycache__/
+
