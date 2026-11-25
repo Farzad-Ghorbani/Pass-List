@@ -2,7 +2,7 @@ name: pass-list
 
 services:
   init:
-    image: ghcr.io/farzad-ghorbani/pass-list-init:v1.13.1-final
+    image: ghcr.io/farzad-ghorbani/pass-list-init:v1.13.2-final
     container_name: passlist-init
     restart: "no"
     environment:
@@ -33,7 +33,7 @@ services:
       - passlist-net
 
   web:
-    image: ghcr.io/farzad-ghorbani/pass-list-web:v1.13.1-final
+    image: ghcr.io/farzad-ghorbani/pass-list-web:v1.13.2-final
     container_name: passlist-web
     restart: unless-stopped
     depends_on:
@@ -83,7 +83,7 @@ services:
       - passlist-net
 
   nginx:
-    image: ghcr.io/farzad-ghorbani/pass-list-nginx:v1.13.1-final
+    image: ghcr.io/farzad-ghorbani/pass-list-nginx:v1.13.2-final
     container_name: passlist-nginx
     restart: unless-stopped
     depends_on:
@@ -104,7 +104,7 @@ services:
       - passlist-net
 
   cert-ops:
-    image: ghcr.io/farzad-ghorbani/pass-list-cert-ops:v1.13.1-final
+    image: ghcr.io/farzad-ghorbani/pass-list-cert-ops:v1.13.2-final
     container_name: passlist-cert-ops
     restart: unless-stopped
     depends_on:

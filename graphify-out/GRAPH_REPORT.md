@@ -1,4 +1,4 @@
-# Graph Report - Pass-List  (2026-10-14)
+# Graph Report - Pass-List  (2026-11-25)
 
 ## Corpus Check
 - cluster-only mode — file stats not available
@@ -7,6 +7,11 @@
 - 633 nodes · 1818 edges · 23 communities (15 shown, 8 thin omitted)
 - Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 215 edges (avg confidence: 0.93)
 - Token cost: 0 input · 0 output
+
+## Graph Freshness
+- Built from commit: `735c3f50`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - Community 0

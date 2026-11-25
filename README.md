@@ -6,10 +6,10 @@ This repository is the image/Compose distribution for Pass-List. Installation do
 
 The GitHub Actions workflow publishes these private GHCR images:
 
-- `ghcr.io/farzad-ghorbani/pass-list-web:v1.13.1-final`
-- `ghcr.io/farzad-ghorbani/pass-list-cert-ops:v1.13.1-final`
-- `ghcr.io/farzad-ghorbani/pass-list-nginx:v1.13.1-final`
-- `ghcr.io/farzad-ghorbani/pass-list-init:v1.13.1-final`
+- `ghcr.io/farzad-ghorbani/pass-list-web:v1.13.2-final`
+- `ghcr.io/farzad-ghorbani/pass-list-cert-ops:v1.13.2-final`
+- `ghcr.io/farzad-ghorbani/pass-list-nginx:v1.13.2-final`
+- `ghcr.io/farzad-ghorbani/pass-list-init:v1.13.2-final`
 - `ghcr.io/farzad-ghorbani/pass-list-postgres:16-alpine`
 
 `pass-list-init` only prepares persistent paths and creates a temporary self-signed certificate when no certificate exists. It exits before the application starts. No Docker socket is mounted into the application.
@@ -77,7 +77,7 @@ The running application itself does not require Internet access. For a fully iso
 
 ## Build source
 
-The exact build source is stored under `source/parts/` as Base64 archive parts. GitHub Actions reconstructs `pass-list-v1.13.1-final-source.zip`, verifies it against `source/BUILD-SHA256.txt`, and only then builds the images.
+The exact build source is stored under `source/parts/` as Base64 archive parts. GitHub Actions reconstructs `pass-list-v1.13.2-final-source.zip`, verifies it against `source/BUILD-SHA256.txt`, and only then builds the images.
 
 The application code includes the production-tested Controller Value search filtering, Controller-scoped result columns, sticky/search-result table improvements, UI refinements, hostname management, blocked-access landing page, TLS management, and migrations through `core.0008`.
 
