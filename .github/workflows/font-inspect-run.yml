@@ -1,0 +1,44 @@
+name: Temporary Pass-List font inspection run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/font-inspect-run.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reconstruct checksum-verified source
+        run: python tools/graphify/prepare_source.py
+      - name: Inspect typography selectors and templates
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root = Path("graphify-source")
+          css = (root / "app/static/css/passlist.css").read_text(encoding="utf-8")
+          print("=== MATCHING CSS RULES ===")
+          for raw in css.split("}"):
+              rule = raw.strip()
+              if not rule:
+                  continue
+              selector, sep, declarations = rule.partition("{")
+              if not sep:
+                  continue
+              if any(x in selector for x in (".action", ".pill", ".unit-tile", ".card", ".admin")) or any(x in declarations for x in ("font-family", "font-weight", "text-shadow")):
+                  print((selector.strip() + " {" + declarations.strip() + "}").replace("\\n", " ")[:1800])
+          for name in ("home.html","unit_list.html","admin_dashboard.html","field_list.html","security_timeout_settings.html","tls_certificate_management.html"):
+              p = root / "app/templates/core" / name
+              print(f"=== TEMPLATE {name} ===")
+              print(p.read_text(encoding="utf-8")[:12000])
+          PY
