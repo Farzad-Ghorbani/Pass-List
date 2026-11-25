@@ -1,0 +1,150 @@
+name: Build Pass-List typography patch release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/font-patch-release.yml'
+
+permissions:
+  contents: write
+  packages: write
+  actions: write
+
+jobs:
+  patch-and-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Patch verified source and prepare v1.13.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64
+          import copy
+          import hashlib
+          import io
+          from pathlib import Path, PurePosixPath
+          import re
+          import zipfile
+
+          root = Path(".")
+          parts_dir = root / "source/parts"
+          encoded = b"".join(p.read_bytes() for p in sorted(parts_dir.glob("part-*.b64")))
+          archive_bytes = base64.b64decode(b"".join(encoded.split()), validate=True)
+          actual = hashlib.sha256(archive_bytes).hexdigest()
+          expected = (root / "source/BUILD-SHA256.txt").read_text().strip()
+          if actual != expected:
+              raise SystemExit(f"Source checksum mismatch: expected {expected}, got {actual}")
+
+          old_root = "pass-list-v1.13.1-final-source"
+          new_root = "pass-list-v1.13.2-final-source"
+          output = io.BytesIO()
+          changed_css = False
+          with zipfile.ZipFile(io.BytesIO(archive_bytes), "r") as src, zipfile.ZipFile(output, "w") as dst:
+              for member in src.infolist():
+                  path = PurePosixPath(member.filename)
+                  if not path.parts or path.parts[0] != old_root:
+                      raise SystemExit(f"Unexpected source archive path: {member.filename}")
+                  relative = path.parts[1:]
+                  new_name = str(PurePosixPath(new_root, *relative)) if relative else new_root + "/"
+                  data = src.read(member) if not member.is_dir() else b""
+                  if relative and "/".join(relative) == "app/static/css/passlist.css":
+                      css = data.decode("utf-8")
+                      marker = "/* v1.13.2: match Admin Panel action-card typography to Home User Units */"
+                      if marker not in css:
+                          css = css.rstrip() + (
+                              "\n\n" + marker +
+                              "\n.action-grid .action{font-family:inherit;font-weight:700;letter-spacing:normal;text-shadow:none}\n"
+                          )
+                      data = css.encode("utf-8")
+                      changed_css = True
+                  info = copy.copy(member)
+                  info.filename = new_name
+                  dst.writestr(info, data)
+          if not changed_css:
+              raise SystemExit("Could not find app/static/css/passlist.css in the verified source archive")
+
+          new_archive = output.getvalue()
+          new_digest = hashlib.sha256(new_archive).hexdigest()
+          (root / "source/BUILD-SHA256.txt").write_text(new_digest + "\n", encoding="ascii")
+          new_encoded = base64.b64encode(new_archive).decode("ascii")
+          for old_part in parts_dir.glob("part-*.b64"):
+              old_part.unlink()
+          for index, offset in enumerate(range(0, len(new_encoded), 50000)):
+              (parts_dir / f"part-{index:02d}.b64").write_text(new_encoded[offset:offset+50000] + "\n", encoding="ascii")
+
+          # Update deployment and release metadata together with the source.
+          for filename in ("README.md", "compose.yaml", ".github/workflows/publish-images.yml"):
+              p = root / filename
+              text = p.read_text(encoding="utf-8")
+              text = text.replace("v1.13.1-final", "v1.13.2-final")
+              text = text.replace("pass-list-v1.13.1-final-source", "pass-list-v1.13.2-final-source")
+              p.write_text(text, encoding="utf-8")
+
+          print(f"Verified original source SHA256: {actual}")
+          print(f"New source SHA256: {new_digest}")
+          print(f"New archive bytes: {len(new_archive)}; Base64 parts: {(len(new_encoded)+49999)//50000}")
+          print("Updated only the Admin Panel action-card typography: inherited body font, weight 700, no text shadow.")
+          PY
+
+      - name: Rebuild Graphify snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -r tools/graphify/requirements.txt
+          bash tools/graphify/build.sh
+
+      - name: Commit complete patch release source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/font-inspect.yml .github/workflows/font-inspect-run.yml .github/workflows/font-patch-release.yml
+          git add README.md compose.yaml .github/workflows/publish-images.yml source/BUILD-SHA256.txt source/parts graphify-out
+          git commit -m "fix: soften admin typography and prepare v1.13.2-final"
+          git push origin HEAD:main
+          echo "PATCH_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Dispatch full image build, test and release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh workflow run publish-images.yml --repo "$GITHUB_REPOSITORY" --ref main
+          for attempt in $(seq 1 30); do
+            RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow publish-images.yml --branch main --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+            if [ -n "$RUN_ID" ]; then
+              break
+            fi
+            sleep 2
+          done
+          test -n "${RUN_ID:-}"
+          echo "Release workflow run: $RUN_ID"
+          for attempt in $(seq 1 240); do
+            STATE="$(gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --json status,conclusion --jq '.status + ":" + (.conclusion // "")')"
+            echo "Release build status: $STATE"
+            case "$STATE" in
+              completed:success)
+                gh release view v1.13.2-final --repo "$GITHUB_REPOSITORY"
+                exit 0
+                ;;
+              completed:*)
+                gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed || true
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY"
+          exit 1
