@@ -1,0 +1,47 @@
+name: Dispatch Pass-List v1.13.2 build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/dispatch-v132.yml'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Dispatch verified v1.13.2 image build and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh workflow run publish-images.yml --repo "$GITHUB_REPOSITORY" --ref main
+          for attempt in $(seq 1 30); do
+            RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow publish-images.yml --branch main --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+            if [ -n "$RUN_ID" ]; then break; fi
+            sleep 2
+          done
+          test -n "${RUN_ID:-}"
+          echo "Release workflow run: $RUN_ID"
+          for attempt in $(seq 1 240); do
+            STATE="$(gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --json status,conclusion --jq '.status + ":" + (.conclusion // "")')"
+            echo "Release build status: $STATE"
+            case "$STATE" in
+              completed:success)
+                gh release view v1.13.2-final --repo "$GITHUB_REPOSITORY"
+                exit 0
+                ;;
+              completed:*)
+                gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed || true
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY"
+          exit 1
