@@ -83,7 +83,7 @@ jobs:
               (parts_dir / f"part-{index:02d}.b64").write_text(new_encoded[offset:offset+50000] + "\n", encoding="ascii")
 
           # Update deployment and release metadata together with the source.
-          for filename in ("README.md", "compose.yaml", ".github/workflows/publish-images.yml"):
+          for filename in ("README.md", "compose.yaml"):
               p = root / filename
               text = p.read_text(encoding="utf-8")
               text = text.replace("v1.13.1-final", "v1.13.2-final")
@@ -111,8 +111,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -f .github/workflows/font-inspect.yml .github/workflows/font-inspect-run.yml .github/workflows/font-patch-release.yml
-          git add README.md compose.yaml .github/workflows/publish-images.yml source/BUILD-SHA256.txt source/parts graphify-out
+          git add README.md compose.yaml source/BUILD-SHA256.txt source/parts graphify-out
           git commit -m "fix: soften admin typography and prepare v1.13.2-final"
           git push origin HEAD:main
           echo "PATCH_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
