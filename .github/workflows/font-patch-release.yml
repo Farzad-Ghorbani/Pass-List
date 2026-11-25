@@ -53,7 +53,9 @@ jobs:
                   if not path.parts or path.parts[0] != old_root:
                       raise SystemExit(f"Unexpected source archive path: {member.filename}")
                   relative = path.parts[1:]
-                  new_name = str(PurePosixPath(new_root, *relative)) if relative else new_root + "/"
+                  new_name = str(PurePosixPath(new_root, *relative)) if relative else new_root
+                  if member.is_dir():
+                      new_name = new_name.rstrip("/") + "/"
                   data = src.read(member) if not member.is_dir() else b""
                   if relative and "/".join(relative) == "app/static/css/passlist.css":
                       css = data.decode("utf-8")
