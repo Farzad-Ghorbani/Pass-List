@@ -1,10 +1,8 @@
 name: Export Pass-List v1.13.2 offline bundle
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/export-offline-bundle.yml'
+  schedule:
+    - cron: '*/5 * * * *'
 
 permissions:
   contents: read
