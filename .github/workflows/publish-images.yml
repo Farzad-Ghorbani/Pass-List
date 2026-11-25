@@ -14,7 +14,7 @@ permissions:
   packages: write
 
 env:
-  RELEASE_TAG: v1.13.1-final
+  RELEASE_TAG: v1.13.2-final
 
 jobs:
   publish:
@@ -27,14 +27,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat source/parts/part-*.b64 | base64 -d > pass-list-v1.13.1-final-source.zip
+          cat source/parts/part-*.b64 | base64 -d > pass-list-v1.13.2-final-source.zip
           EXPECTED="$(tr -d '[:space:]' < source/BUILD-SHA256.txt)"
-          ACTUAL="$(sha256sum pass-list-v1.13.1-final-source.zip | awk '{print $1}')"
+          ACTUAL="$(sha256sum pass-list-v1.13.2-final-source.zip | awk '{print $1}')"
           test "$ACTUAL" = "$EXPECTED"
           rm -rf build-source
           mkdir -p build-source
-          unzip -q pass-list-v1.13.1-final-source.zip -d build-source
-          mv build-source/pass-list-v1.13.1-final-source build-source/src
+          unzip -q pass-list-v1.13.2-final-source.zip -d build-source
+          mv build-source/pass-list-v1.13.2-final-source build-source/src
           echo "Source SHA256 verified: $ACTUAL"
 
       - name: Set image names
